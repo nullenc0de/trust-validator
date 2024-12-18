@@ -23,20 +23,22 @@ This tool validates potential security issues in Active Directory trust relation
 - Domain user credentials
 - Required Python packages:
   ```
-  impacket>=0.10.0
-  ldap3>=2.9
-  pyasn1>=0.4.8
+  impacket
+  ldap3
+  pyasn1
   ```
 
 ## Installation
-```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # Linux/Mac
-.\venv\Scripts\activate   # Windows
-
+```
 # Install requirements
-pip install impacket>=0.10.0 ldap3>=2.9 pyasn1>=0.4.8
+# Debian/Ubuntu
+sudo apt-get install -y python3 python3-pip python3-dev pipx
+
+# Then install packages:
+pipx ensurepath
+pipx install git+https://github.com/fortra/impacket.git --force
+pipx install git+https://github.com/dirkjanm/ldapdomaindump.git --force 
+pipx install git+https://github.com/CravateRouge/bloodyAD --force
 ```
 
 ## Usage
