@@ -36,7 +36,7 @@ source venv/bin/activate  # Linux/Mac
 .\venv\Scripts\activate   # Windows
 
 # Install requirements
-pip install -r requirements.txt
+pip install impacket>=0.10.0 ldap3>=2.9 pyasn1>=0.4.8
 ```
 
 ## Usage
