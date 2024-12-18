@@ -84,6 +84,59 @@ Failed validation:
 Trust appears inactive: KDC_ERR_S_PRINCIPAL_UNKNOWN
 ```
 
+## NXC
+```
+# Interactive Console Output:
+LDAP        192.168.1.10    445    DC01             [*] Windows 10.0 Build 17763 x64 (name:DC01) (domain:corp.local) (signing:True) (SMBv1:False)
+LDAP        192.168.1.10    445    DC01             [+] corp.local\administrator:Password123! 
+LDAP        192.168.1.10    445    DC01             [*] Validating trust ticket configuration for dev.corp.local...
+LDAP        192.168.1.10    445    DC01             [+] Saved TGT to /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/tgt.ccache
+LDAP        192.168.1.10    445    DC01             [*] Analyzing trust ticket configuration...
+LDAP        192.168.1.10    445    DC01             [+] Saved trust TGS to /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/trust.tgs
+LDAP        192.168.1.10    445    DC01             [!] [Vulnerability] Trust using RC4 encryption (vulnerable to forgery)
+LDAP        192.168.1.10    445    DC01             [!] [Vulnerability] Trust tickets are forwardable
+LDAP        192.168.1.10    445    DC01             [!] [Vulnerability] Extended ticket lifetime: 12.5 hours
+LDAP        192.168.1.10    445    DC01             [+] Saved evidence to /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/evidence.json
+
+LDAP        192.168.1.10    445    DC01             [+] Potential Impact:
+LDAP        192.168.1.10    445    DC01             [!] - Trust ticket forgery may be possible
+LDAP        192.168.1.10    445    DC01             [!] - Unauthorized cross-domain access risk
+LDAP        192.168.1.10    445    DC01             [!] - Potential for persistence
+
+LDAP        192.168.1.10    445    DC01             [+] Evidence and tickets saved to: /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022
+LDAP        192.168.1.10    445    DC01             [*] Use these files to validate findings:
+LDAP        192.168.1.10    445    DC01             [*] - TGT ccache: /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/tgt.ccache
+LDAP        192.168.1.10    445    DC01             [*] - Trust TGS: /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/trust.tgs
+LDAP        192.168.1.10    445    DC01             [*] - Evidence JSON: /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/evidence.json
+
+# Contents of evidence.json:
+{
+  "timestamp": "2024-12-18T14:30:22.531642",
+  "source_domain": "corp.local",
+  "trust_domain": "dev.corp.local",
+  "dc_ip": "192.168.1.10",
+  "vulnerabilities": [
+    "Trust using RC4 encryption (vulnerable to forgery)",
+    "Trust tickets are forwardable",
+    "Extended ticket lifetime: 12.5 hours"
+  ],
+  "ticket_details": {
+    "encryption_type": 23,
+    "ticket_flags": 262144,
+    "lifetime_hours": 12.5
+  }
+}
+
+# Example of commands to use saved tickets:
+$ export KRB5CCNAME=/home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/tgt.ccache
+$ klist
+Ticket cache: FILE:/home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/tgt.ccache
+Default principal: administrator@CORP.LOCAL
+
+Valid starting       Expires              Service principal
+12/18/2024 14:30:22  12/19/2024 00:30:22  krbtgt/CORP.LOCAL@CORP.LOCAL
+```
+
 ## Security Considerations
 The tool implements several safety measures:
 - No modification of domain objects
