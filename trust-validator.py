@@ -2,7 +2,7 @@
 
 import sys
 import argparse
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, sendKerberosTGSRequest
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, sendReceive
 from impacket.krb5 import constants
 from impacket.krb5.types import Principal
 from impacket.krb5.crypto import _enctype_table, Key, _HMACMD5
@@ -17,6 +17,17 @@ class SafeTicketValidator:
         self.dc_ip = dc_ip
         self.trust_domain = trust_domain
 
+    def _send_tgs_request(self, server_name, domain, dc_ip, tgt, cipher, session_key):
+        """
+        Helper function to safely send TGS request using sendReceive
+        """
+        try:
+            tgs, cipher, _ = getKerberosTGS(server_name, domain, dc_ip, tgt, cipher, session_key)
+            return tgs
+        except Exception as e:
+            print(f"[!] Error sending TGS request: {str(e)}")
+            return None
+
     def validate_ticket_forgability(self):
         """
         Safely validates if ticket forgery is possible without actual forgery
@@ -26,15 +37,21 @@ class SafeTicketValidator:
             # Step 1: Get legitimate TGT first
             print("[*] Getting initial TGT to analyze trust configuration...")
             client = Principal(self.username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-            tgt, cipher, _, session_key = getKerberosTGT(client, self.password, self.domain, None, None, None, self.dc_ip)
+            tgt, cipher, _, session_key = getKerberosTGT(client, self.password, self.domain, 
+                                                        None, None, None, self.dc_ip)
 
             # Step 2: Request legitimate trust ticket (no forgery)
             print(f"[*] Requesting trust ticket for analysis from {self.trust_domain}...")
-            server_name = Principal(f'krbtgt/{self.trust_domain}', type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+            server_name = Principal(f'krbtgt/{self.trust_domain}', 
+                                  type=constants.PrincipalNameType.NT_PRINCIPAL.value)
             
             try:
-                # Get legitimate TGS for analysis
-                tgs, cipher, _ = getKerberosTGS(server_name, self.domain, self.dc_ip, tgt, cipher, session_key)
+                # Get legitimate TGS using correct functions
+                tgs = self._send_tgs_request(server_name, self.domain, self.dc_ip, 
+                                           tgt, cipher, session_key)
+                
+                if tgs is None:
+                    return False, "Failed to obtain trust ticket for analysis"
                 
                 # Step 3: Analyze ticket properties
                 print("[*] Analyzing trust ticket properties...")
@@ -60,13 +77,10 @@ class SafeTicketValidator:
                 if lifetime > 36000:  # Over 10 hours
                     vulnerabilities.append(f"- Long ticket lifetime: {lifetime/3600:.1f} hours")
 
-                # Send a benign TGS request to verify server response
+                # Validate server response using sendReceive directly
                 print("[*] Validating server response to ticket requests...")
-                response = sendKerberosTGSRequest(
-                    tgs, 
-                    self.dc_ip,
-                    timeout=1  # Short timeout for safety
-                )
+                messageLen = struct.pack('!i', len(tgs))
+                response = sendReceive(messageLen + tgs, self.domain, self.dc_ip)
                 
                 if response and len(vulnerabilities) > 0:
                     print("[+] Trust configuration is vulnerable to ticket attacks!")
