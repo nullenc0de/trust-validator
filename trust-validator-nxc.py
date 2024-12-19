@@ -2,7 +2,7 @@ import sys
 import os
 import json
 from datetime import datetime
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, sendKerberosTGSRequest
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, sendReceive
 from impacket.krb5 import constants
 from impacket.krb5.types import Principal
 from impacket.krb5.ccache import CCache
@@ -34,6 +34,17 @@ class NXCModule:
         self.save_ticket = True
         if 'SAVE_TICKET' in module_options:
             self.save_ticket = module_options['SAVE_TICKET'].lower() == 'true'
+
+    def _validate_tgs_response(self, tgs, domain, dc_ip):
+        """
+        Helper function to safely validate TGS response using sendReceive
+        """
+        try:
+            messageLen = struct.pack('!i', len(tgs))
+            response = sendReceive(messageLen + tgs, domain, dc_ip)
+            return response is not None
+        except Exception:
+            return False
 
     def on_login(self, context, connection):
         try:
@@ -79,6 +90,7 @@ class NXCModule:
             }
 
             try:
+                # Get trust ticket using getKerberosTGS
                 tgs, cipher, _ = getKerberosTGS(
                     server_name,
                     connection.domain,
@@ -87,6 +99,10 @@ class NXCModule:
                     cipher,
                     session_key
                 )
+                
+                # Validate TGS response
+                if not self._validate_tgs_response(tgs, connection.domain, connection.host):
+                    context.log.warning("Warning: Unexpected TGS response validation")
                 
                 # Save TGS
                 if self.save_ticket:
