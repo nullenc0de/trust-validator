@@ -22,7 +22,7 @@ class SafeTicketValidator:
         Helper function to safely send TGS request using sendReceive
         """
         try:
-            tgs, cipher, _ = getKerberosTGS(server_name, domain, dc_ip, tgt, cipher, session_key)
+            tgs, cipher, _, _ = getKerberosTGS(server_name, domain, dc_ip, tgt, cipher, session_key)
             return tgs
         except Exception as e:
             print(f"[!] Error sending TGS request: {str(e)}")
