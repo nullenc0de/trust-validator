@@ -1,21 +1,23 @@
 # Trust Validator Tool
 
 ## Overview
-This tool validates potential security issues in Active Directory trust relationships, focusing on inactive trusts and encryption configuration vulnerabilities. It performs safe validation without modifying domain objects or attempting exploitation.
+Trust Validator is a security testing tool that identifies potential vulnerabilities in Active Directory trust relationships. It focuses on validating trust ticket configurations without modifying domain objects or attempting actual exploitation, making it suitable for security assessments in production environments.
 
 ## ⚠️ Important Notes
-- This is a security testing tool - use only with explicit permission
-- Run only in authorized test environments
-- Some organizations may classify this as a security testing tool
-- Always follow your organization's security testing policies
-- Store tool outputs securely
+- **Security Testing Tool** - Use only with explicit permission
+- **Authorized Environments Only** - Run only in environments where you have authorization
+- **Security Classification** - Some organizations may classify this as a security testing tool
+- **Follow Security Policies** - Always adhere to your organization's security testing guidelines
+- **Secure Storage** - Store tool outputs securely
 
 ## Features
 - Validates inactive trust relationships
-- Checks encryption configuration (AES vs RC4)
-- Analyzes trust ticket properties
-- Identifies potential ticket forgery vulnerabilities
+- Identifies vulnerable encryption configurations (AES vs RC4)
+- Analyzes trust ticket properties (forwardable flags, lifetime, etc.)
+- Detects potential ticket forgery vulnerabilities
+- Provides service-specific impact analysis
 - EDR-friendly validation methods
+- Optional simulation mode for demonstrating potential exploitation paths
 
 ## Prerequisites
 - Python 3.8+
@@ -29,8 +31,8 @@ This tool validates potential security issues in Active Directory trust relation
   ```
 
 ## Installation
-```
-# Install requirements
+```bash
+# Install dependencies
 # Debian/Ubuntu
 sudo apt-get install -y python3 python3-pip python3-dev pipx
 
@@ -42,27 +44,58 @@ pipx install git+https://github.com/CravateRouge/bloodyAD --force
 ```
 
 ## Usage
-Basic syntax:
+### Basic Syntax
 ```bash
 python3 trust_validator.py -d <domain> -u <username> -p <password> --dc-ip <dc-ip> -t <trust-domain>
 ```
 
-Example:
+### Basic Vulnerability Checking
 ```bash
-python3 trust_validator.py -d domain.local -u testuser -p mypassword --dc-ip 10.0.0.1 -t trusted.domain.com
+python3 trust_validator.py -d corp.local -u administrator@corp.local -p P@ssw0rd --dc-ip 192.168.1.10 -t trusted.local
 ```
 
-## Arguments
+### Automated Trust Domain Detection
+```bash
+python3 trust_validator.py -d corp.local -u administrator@corp.local -p P@ssw0rd --dc-ip 192.168.1.10 --spn ldap/dc.trusted.local
 ```
--d, --domain        Domain name (e.g., domain.local)
--u, --username      Username for authentication
--p, --password      Password for authentication
---dc-ip            Domain Controller IP address
--t, --trust-domain  Trusted domain to validate
+
+### Exploitation Simulation Mode
+```bash
+python3 trust_validator.py -d corp.local -u administrator@corp.local -p P@ssw0rd --dc-ip 192.168.1.10 -t trusted.local --spn ldap/dc.trusted.local --exploit
 ```
+
+## Required Arguments
+| Argument | Description |
+|----------|-------------|
+| `-d`, `--domain` | Source domain name (e.g., corp.local) |
+| `-u`, `--username` | Username with domain access (e.g., user@corp.local) |
+| `-p`, `--password` | Password for the provided username |
+| `--dc-ip` | IP address of the domain controller |
+
+## Optional Arguments
+| Argument | Description |
+|----------|-------------|
+| `-t`, `--trust-domain` | Trusted domain name (e.g., trusted.local); can be auto-detected from SPN |
+| `--spn` | Service Principal Name in the trusted domain (e.g., ldap/dc.trusted.local) |
+| `--exploit` | Enable simulated exploitation mode (for demonstration purposes) |
+
+## Vulnerability Detection
+The tool checks for:
+
+1. **RC4 Encryption** - Identifies if trusts are using weak RC4 encryption (vulnerable to forgery)
+2. **Forwardable Tickets** - Detects if trust tickets are configured as forwardable
+3. **Extended Lifetimes** - Checks for excessive ticket lifetimes that extend the vulnerability window
+
+## Service-Specific Impact Analysis
+For each vulnerable service type, the tool provides context-specific impact analysis:
+
+- **LDAP**: Potential for unauthorized directory queries or modifications
+- **CIFS**: File share access on domain controllers
+- **HTTP**: Potential web service exploitation
+- **krbtgt**: Implications for Golden Ticket attacks
 
 ## Output Examples
-Successful validation:
+### Successful Vulnerability Validation
 ```
 === Trust Ticket Vulnerability Validator ===
 [*] Validating trust ticket vulnerability...
@@ -76,19 +109,28 @@ Vulnerable configuration details:
 - Trust using RC4 encryption (vulnerable to forgery)
 - Trust tickets are forwardable
 - Long ticket lifetime: 12.0 hours
+
+=== Results ===
+Trust Vulnerable to Ticket Attacks: Yes
+Evidence:
+- Trust using RC4 encryption (vulnerable to forgery)
+- Trust tickets are forwardable
+- Long ticket lifetime: 12.0 hours
 ```
 
-Failed validation:
+### Failed Validation
 ```
 === Trust Ticket Vulnerability Validator ===
 [*] Validating trust ticket vulnerability...
 [!] Trust validation failed - trust may be inactive
-Trust appears inactive: KDC_ERR_S_PRINCIPAL_UNKNOWN
+
+=== Results ===
+Trust Vulnerable to Ticket Attacks: No
+Evidence: Trust appears inactive: KDC_ERR_S_PRINCIPAL_UNKNOWN
 ```
 
-## NXC
+### NXC Integration Output
 ```
-# Interactive Console Output:
 LDAP        192.168.1.10    445    DC01             [*] Windows 10.0 Build 17763 x64 (name:DC01) (domain:corp.local) (signing:True) (SMBv1:False)
 LDAP        192.168.1.10    445    DC01             [+] corp.local\administrator:Password123! 
 LDAP        192.168.1.10    445    DC01             [*] Validating trust ticket configuration for dev.corp.local...
@@ -106,12 +148,12 @@ LDAP        192.168.1.10    445    DC01             [!] - Unauthorized cross-dom
 LDAP        192.168.1.10    445    DC01             [!] - Potential for persistence
 
 LDAP        192.168.1.10    445    DC01             [+] Evidence and tickets saved to: /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022
-LDAP        192.168.1.10    445    DC01             [*] Use these files to validate findings:
-LDAP        192.168.1.10    445    DC01             [*] - TGT ccache: /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/tgt.ccache
-LDAP        192.168.1.10    445    DC01             [*] - Trust TGS: /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/trust.tgs
-LDAP        192.168.1.10    445    DC01             [*] - Evidence JSON: /home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/evidence.json
+```
 
-# Contents of evidence.json:
+## Evidence Collection
+The tool saves evidence in JSON format:
+
+```json
 {
   "timestamp": "2024-12-18T14:30:22.531642",
   "source_domain": "corp.local",
@@ -128,8 +170,11 @@ LDAP        192.168.1.10    445    DC01             [*] - Evidence JSON: /home/u
     "lifetime_hours": 12.5
   }
 }
+```
 
-# Example of commands to use saved tickets:
+## Using Saved Tickets
+Example of commands to use saved tickets:
+```bash
 $ export KRB5CCNAME=/home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/tgt.ccache
 $ klist
 Ticket cache: FILE:/home/user/.nxc/workspaces/trust-validator/corp.local_dev.corp.local_20241218_143022/tgt.ccache
@@ -148,19 +193,26 @@ The tool implements several safety measures:
 - Validates configurations without exploitation
 - Designed to avoid triggering security alerts
 
+## Implementation Details
+- **Safe Validation**: Focuses on identifying vulnerable configurations without exploiting them
+- **Ticket Analysis**: Examines Kerberos ticket properties to detect potential weaknesses
+- **Trust Validation**: Verifies if trust relationships are active
+- **Encryption Detection**: Identifies weak encryption algorithms that could be exploited
+
 ## Troubleshooting
 Common issues:
-1. Connection failures
+
+1. **Connection failures**
    - Verify network connectivity to DC
    - Check firewall rules
    - Ensure DNS resolution works
 
-2. Authentication errors
+2. **Authentication errors**
    - Verify credentials
    - Check account isn't locked/expired
    - Ensure user has necessary permissions
 
-3. Trust validation failures
+3. **Trust validation failures**
    - Verify trust domain name
    - Check trust relationship status
    - Ensure DNS can resolve trust domain
@@ -176,6 +228,3 @@ Common issues:
 - Follow secure development practices
 - Include tests with pull requests
 - Document any new features
-
-## License
-For authorized security testing only. Check your organization's security policies before use.
